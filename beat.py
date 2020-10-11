@@ -5,10 +5,13 @@ from scipy import signal
 
 # import audio
 fs,x = sw.read("audio/dancerShortmono.wav")
+#fs,x = sw.read("audio/hh170.wav")
 
-x = x[(fs*1):(fs*4)]
+x = x[(fs*4):(fs*12)]
 
 x = x / np.max(np.abs(x))
+
+length = len(x)
 
 # filterbank, 6th order elliptic filter
 filter_order = 6
@@ -65,12 +68,14 @@ hann4 = np.convolve(bank4, hanning_half,mode='same')
 hann5 = np.convolve(bank5, hanning_half,mode='same')
 
 #decimate to 210.5hz
-dec0 = hann0[::200]
-dec1 = hann1[::200]
-dec2 = hann2[::200]
-dec3 = hann3[::200]
-dec4 = hann4[::200]
-dec5 = hann5[::200]
+dec_rate = 200
+
+dec0 = hann0[::dec_rate]
+dec1 = hann1[::dec_rate]
+dec2 = hann2[::dec_rate]
+dec3 = hann3[::dec_rate]
+dec4 = hann4[::dec_rate]
+dec5 = hann5[::dec_rate]
 
 # differentiator
 diff0 = np.gradient(dec0)
@@ -88,9 +93,61 @@ rect3 = np.clip(diff3,0,np.max(diff3))
 rect4 = np.clip(diff4,0,np.max(diff4))
 rect5 = np.clip(diff5,0,np.max(diff5))
 
+#rect0 = np.abs(diff0)
+#rect1 = np.abs(diff1)
+#rect2 = np.abs(diff2)
+#rect3 = np.abs(diff3)
+#rect4 = np.abs(diff4)
+#rect5 = np.abs(diff5)
+
+# comb filter bank
+tempo=[60,70,80,90,100,110,120,130,140,150,160,170,180];
+
+
+dec_fs = fs / dec_rate;
+
+comb_out0 = np.zeros([len(tempo),len(rect0)])
+comb_out1 = np.zeros([len(tempo),len(rect0)])
+comb_out2 = np.zeros([len(tempo),len(rect0)])
+comb_out3 = np.zeros([len(tempo),len(rect0)])
+comb_out4 = np.zeros([len(tempo),len(rect0)])
+comb_out5 = np.zeros([len(tempo),len(rect0)])
+
+total = np.zeros(len(tempo))
+
+#rect0 = signal.unit_impulse(len(rect0))
+
+b = 0.5
+
+for i in range(len(tempo)):
+	delay = int(dec_fs*(60/tempo[i]))
+	print("Delay at " + str(tempo[i]) +" bpm: " + str(delay))
+	# comb filter
+	for j in range(len(rect0)):
+		if( j < delay ):
+			comb_out0[i][j]	= rect0[j]
+			comb_out1[i][j]	= rect1[j]
+			comb_out2[i][j]	= rect2[j]
+			comb_out3[i][j]	= rect3[j]
+			comb_out4[i][j]	= rect4[j]
+			comb_out5[i][j]	= rect5[j]
+		else:
+			b = np.power(0.5, j/delay)
+			comb_out0[i][j] = rect0[j] + ((1-b)*comb_out0[i][j-delay])
+			comb_out1[i][j] = rect1[j] + ((1-b)*comb_out1[i][j-delay])
+			comb_out2[i][j] = rect2[j] + ((1-b)*comb_out2[i][j-delay])
+			comb_out3[i][j] = rect3[j] + ((1-b)*comb_out3[i][j-delay])
+			comb_out4[i][j] = rect4[j] + ((1-b)*comb_out4[i][j-delay])
+			comb_out5[i][j] = rect5[j] + ((1-b)*comb_out5[i][j-delay])
+	total[i] = np.sum(comb_out0[i]) + np.sum(comb_out1[i]) + np.sum(comb_out2) + np.sum(comb_out3[i]) + np.sum(comb_out4[i]) + np.sum(comb_out5[i]) 
+
+	print(total[i])
+
+
 plt.figure(1)
 plt.subplot(2,1,1)
 plt.plot(diff0)
 plt.subplot(2,1,2)
-plt.plot(rect0)
+plt.plot(comb_out5[0])
+plt.plot(comb_out4[5])
 plt.show();
