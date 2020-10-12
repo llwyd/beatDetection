@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from scipy import signal
 
 # import audio
-fs,x = sw.read("audio/dancerShortmono.wav")
-#fs,x = sw.read("audio/hh170.wav")
+#fs,x = sw.read("audio/dancerShortmono.wav")
+fs,x = sw.read("audio/hh170.wav")
 
 x = x[(fs*4):(fs*12)]
 
@@ -45,13 +45,22 @@ bank3 = signal.sosfilt(filter_bank[3], x)
 bank4 = signal.sosfilt(filter_bank[4], x)
 bank5 = signal.sosfilt(filter_bank[5], x)
 
+
+
 # Rectify 
-#bank0 = np.abs(bank0)
-#bank1 = np.abs(bank1)
-#bank2 = np.abs(bank2)
-#bank3 = np.abs(bank3)
-#bank4 = np.abs(bank4)
-#bank5 = np.abs(bank5)
+bank0 = np.abs(bank0)
+bank1 = np.abs(bank1)
+bank2 = np.abs(bank2)
+bank3 = np.abs(bank3)
+bank4 = np.abs(bank4)
+bank5 = np.abs(bank5)
+
+bank0 = bank0 / np.max(np.abs(bank0))
+bank1 = bank1 / np.max(np.abs(bank1))
+bank2 = bank2 / np.max(np.abs(bank2))
+bank3 = bank3 / np.max(np.abs(bank3))
+bank4 = bank4 / np.max(np.abs(bank4))
+bank5 = bank5 / np.max(np.abs(bank5))
 
 #half hanning window
 window_length = 0.4 * fs
@@ -68,7 +77,7 @@ hann4 = np.convolve(bank4, hanning_half,mode='same')
 hann5 = np.convolve(bank5, hanning_half,mode='same')
 
 #decimate to 210.5hz
-dec_rate = 200
+dec_rate = 4
 
 dec0 = hann0[::dec_rate]
 dec1 = hann1[::dec_rate]
@@ -93,25 +102,18 @@ rect3 = np.clip(diff3,0,np.max(diff3))
 rect4 = np.clip(diff4,0,np.max(diff4))
 rect5 = np.clip(diff5,0,np.max(diff5))
 
-#rect0 = np.abs(diff0)
-#rect1 = np.abs(diff1)
-#rect2 = np.abs(diff2)
-#rect3 = np.abs(diff3)
-#rect4 = np.abs(diff4)
-#rect5 = np.abs(diff5)
-
 # comb filter bank
-tempo=[60,70,80,90,100,110,120,130,140,150,160,170,180];
+tempo=[60,70,80,90,100,110,120,130,140,150,160,170,180,190,200];
 
 
 dec_fs = fs / dec_rate;
 
 comb_out0 = np.zeros([len(tempo),len(rect0)])
-comb_out1 = np.zeros([len(tempo),len(rect0)])
-comb_out2 = np.zeros([len(tempo),len(rect0)])
-comb_out3 = np.zeros([len(tempo),len(rect0)])
-comb_out4 = np.zeros([len(tempo),len(rect0)])
-comb_out5 = np.zeros([len(tempo),len(rect0)])
+comb_out1 = np.zeros([len(tempo),len(rect1)])
+comb_out2 = np.zeros([len(tempo),len(rect2)])
+comb_out3 = np.zeros([len(tempo),len(rect3)])
+comb_out4 = np.zeros([len(tempo),len(rect4)])
+comb_out5 = np.zeros([len(tempo),len(rect5)])
 
 total = np.zeros(len(tempo))
 
@@ -132,22 +134,69 @@ for i in range(len(tempo)):
 			comb_out4[i][j]	= rect4[j]
 			comb_out5[i][j]	= rect5[j]
 		else:
-			b = np.power(0.5, j/delay)
-			comb_out0[i][j] = rect0[j] + ((1-b)*comb_out0[i][j-delay])
-			comb_out1[i][j] = rect1[j] + ((1-b)*comb_out1[i][j-delay])
-			comb_out2[i][j] = rect2[j] + ((1-b)*comb_out2[i][j-delay])
-			comb_out3[i][j] = rect3[j] + ((1-b)*comb_out3[i][j-delay])
-			comb_out4[i][j] = rect4[j] + ((1-b)*comb_out4[i][j-delay])
-			comb_out5[i][j] = rect5[j] + ((1-b)*comb_out5[i][j-delay])
-	total[i] = np.sum(comb_out0[i]) + np.sum(comb_out1[i]) + np.sum(comb_out2) + np.sum(comb_out3[i]) + np.sum(comb_out4[i]) + np.sum(comb_out5[i]) 
+			#b = np.power(0.5, j/delay)
+			comb_out0[i][j] = rect0[j] + (b*comb_out0[i][j-delay])
+			comb_out1[i][j] = rect1[j] + (b*comb_out1[i][j-delay])
+			comb_out2[i][j] = rect2[j] + (b*comb_out2[i][j-delay])
+			comb_out3[i][j] = rect3[j] + (b*comb_out3[i][j-delay])
+			comb_out4[i][j] = rect4[j] + (b*comb_out4[i][j-delay])
+			comb_out5[i][j] = rect5[j] + (b*comb_out5[i][j-delay])
 
-	print(total[i])
+#FFT
+fft_pow = int(np.ceil(np.log2(len(comb_out0[0]))))
 
+fft_len = 2**fft_pow
+
+abs_len = int(fft_len/2)
+
+raw_fft0 = np.empty([len(tempo),fft_len],dtype=np.complex_)
+raw_fft1 = np.empty([len(tempo),fft_len],dtype=np.complex_)
+raw_fft2 = np.empty([len(tempo),fft_len],dtype=np.complex_)
+raw_fft3 = np.empty([len(tempo),fft_len],dtype=np.complex_)
+raw_fft4 = np.empty([len(tempo),fft_len],dtype=np.complex_)
+raw_fft5 = np.empty([len(tempo),fft_len],dtype=np.complex_)
+
+abs_fft0 = np.empty([len(tempo),abs_len])
+abs_fft1 = np.empty([len(tempo),abs_len])
+abs_fft2 = np.empty([len(tempo),abs_len])
+abs_fft3 = np.empty([len(tempo),abs_len])
+abs_fft4 = np.empty([len(tempo),abs_len])
+abs_fft5 = np.empty([len(tempo),abs_len])
+
+abs_sum = np.empty([len(tempo),abs_len])
+raw_sum = np.empty([len(tempo),fft_len],dtype=np.complex_)
+
+energy = np.empty(len(tempo),dtype=np.complex_)
+abs_energy = np.empty(len(tempo))
+
+for i in range(len(tempo)):
+	raw_fft0[i] = np.fft.fft(comb_out0[i],fft_len)
+	raw_fft1[i] = np.fft.fft(comb_out1[i],fft_len)
+	raw_fft2[i] = np.fft.fft(comb_out2[i],fft_len)
+	raw_fft3[i] = np.fft.fft(comb_out3[i],fft_len)
+	raw_fft4[i] = np.fft.fft(comb_out4[i],fft_len)
+	raw_fft5[i] = np.fft.fft(comb_out5[i],fft_len)
+
+	abs_fft0 = np.abs(raw_fft0[i][:abs_len])
+	abs_fft1 = np.abs(raw_fft1[i][:abs_len])
+	abs_fft2 = np.abs(raw_fft2[i][:abs_len])
+	abs_fft3 = np.abs(raw_fft3[i][:abs_len])
+	abs_fft4 = np.abs(raw_fft4[i][:abs_len])
+	abs_fft5 = np.abs(raw_fft5[i][:abs_len])
+
+	abs_sum[i] = abs_fft0[i] + abs_fft1[i] + abs_fft2[i] + abs_fft3[i] + abs_fft4[i] + abs_fft5[i] 
+
+	raw_sum[i] = raw_fft0[i] + raw_fft1[i] + raw_fft2[i] + raw_fft3[i] + raw_fft4[i] + raw_fft5[i]
+	energy[i] = np.sum(raw_sum[i])
+	abs_energy[i] = np.sum(abs_sum[i])
+	print("Tempo: " + str(tempo[i]))
+	print("- Energy: " + str(energy[i]))
+	print("- Abs Energy: " + str(abs_energy[i]))
 
 plt.figure(1)
 plt.subplot(2,1,1)
 plt.plot(diff0)
 plt.subplot(2,1,2)
-plt.plot(comb_out5[0])
-plt.plot(comb_out4[5])
+plt.plot(comb_out4[0])
+plt.plot(comb_out4[4])
 plt.show();
